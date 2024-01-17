@@ -1,5 +1,14 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import fs from 'node:fs';
+import {
+  RequestWithBody,
+  RequestWithParams,
+  RequestWithParamsAndBody,
+  RequestWithQuery,
+} from './types';
+import { QueryPageModel } from './models/QueryPageModel';
+import { CreatePageModel } from './models/CreatePageModel';
+import { UpdatePageModel } from './models/UpdatePageModel';
 
 const { promises: fsp } = fs;
 
@@ -18,36 +27,45 @@ export const HTTP_STATUSES = {
 const jsonBodyMiddleware = express.json();
 app.use(jsonBodyMiddleware);
 
-const db = {
+type PageType = {
+  id: number;
+  url: string;
+  title: string;
+};
+
+const db: { pages: PageType[] } = {
   pages: [
     { id: 1, url: './pages/index.html', title: 'Main page' },
     { id: 2, url: './pages/shopPage.html', title: 'Shop page' },
   ],
 };
 
-app.get('/', async (request, res) => {
+app.get('/', async (req, res: Response<string>) => {
   const data = await fsp.readFile('./pages/index.html', 'utf-8');
   res.send(data);
 });
 
-app.get('/shop', async (request, res) => {
+app.get('/shop', async (req, res: Response<string>) => {
   const data = await fsp.readFile('./pages/shopPage.html', 'utf-8');
   res.send(data);
 });
 
-app.get('/pages', (req, res) => {
-  let foundPages = db.pages;
+app.get(
+  '/pages',
+  (req: RequestWithQuery<QueryPageModel>, res: Response<PageType[]>) => {
+    let foundPages = db.pages;
 
-  if (req.query.title) {
-    foundPages = foundPages.filter(
-      (item) => item.title.indexOf(req.query.title as string) > -1
-    );
+    if (req.query.title) {
+      foundPages = foundPages.filter(
+        (item) => item.title.indexOf(req.query.title) > -1
+      );
+    }
+
+    res.json(foundPages);
   }
+);
 
-  res.json(foundPages);
-});
-
-app.get('/pages/:id', (req, res) => {
+app.get('/pages/:id', (req: RequestWithParams<{ id: string }>, res) => {
   const foundPage = db.pages.find((item) => item.id === +req.params.id);
 
   if (!foundPage) {
@@ -58,30 +76,33 @@ app.get('/pages/:id', (req, res) => {
   res.json(foundPage);
 });
 
-app.post('/pages', (req, res) => {
-  const titleSpacesLength = req.body.title
-    .split('')
-    .filter((char: string) => char === ' ');
-  // check string with spaces only
-  const checkSpaces = req.body.title.length === titleSpacesLength;
+app.post(
+  '/pages',
+  (req: RequestWithBody<CreatePageModel>, res: Response<PageType>) => {
+    const titleSpacesLength = req.body.title
+      .split('')
+      .filter((char: string) => char === ' ').length;
+    // check string with spaces only
+    const checkSpaces = req.body.title.length === titleSpacesLength;
 
-  if (!req.body.title || req.body.title === '' || checkSpaces) {
-    res.sendStatus(HTTP_STATUSES.BAD_REQUEST_400);
-    return;
+    if (!req.body.title || req.body.title === '' || checkSpaces) {
+      res.sendStatus(HTTP_STATUSES.BAD_REQUEST_400);
+      return;
+    }
+
+    const createdPage = {
+      id: +new Date(),
+      url: 'unknown',
+      title: req.body.title,
+    };
+
+    db.pages.push(createdPage);
+
+    res.status(HTTP_STATUSES.CREATED_201).json(createdPage);
   }
+);
 
-  const createdPage = {
-    id: +new Date(),
-    url: 'unknown',
-    title: req.body.title,
-  };
-
-  db.pages.push(createdPage);
-
-  res.status(HTTP_STATUSES.CREATED_201).json(createdPage);
-});
-
-app.delete('/pages/:id', (req, res) => {
+app.delete('/pages/:id', (req: RequestWithParams<{ id: string }>, res) => {
   const lengthDbPages = db.pages.length;
   db.pages = db.pages.filter((page) => page.id !== +req.params.id);
 
@@ -93,22 +114,25 @@ app.delete('/pages/:id', (req, res) => {
   res.sendStatus(HTTP_STATUSES.NO_CONTENT_204);
 });
 
-app.put('/pages/:id', (req, res) => {
-  if (!req.body.title) {
-    res.sendStatus(HTTP_STATUSES.BAD_REQUEST_400);
-    return;
+app.put(
+  '/pages/:id',
+  (req: RequestWithParamsAndBody<{ id: string }, UpdatePageModel>, res) => {
+    if (!req.body.title) {
+      res.sendStatus(HTTP_STATUSES.BAD_REQUEST_400);
+      return;
+    }
+
+    const foundPage = db.pages.find((item) => item.id === +req.params.id);
+    if (!foundPage) {
+      res.sendStatus(HTTP_STATUSES.NOT_FOUND_404);
+      return;
+    }
+
+    foundPage.title = req.body.title;
+
+    res.sendStatus(HTTP_STATUSES.NO_CONTENT_204);
   }
-
-  const foundPage = db.pages.find((item) => item.id === +req.params.id);
-  if (!foundPage) {
-    res.sendStatus(HTTP_STATUSES.NOT_FOUND_404);
-    return;
-  }
-
-  foundPage.title = req.body.title;
-
-  res.sendStatus(HTTP_STATUSES.NO_CONTENT_204);
-});
+);
 
 app.delete('/__test__/data', (req, res) => {
   db.pages = [];
