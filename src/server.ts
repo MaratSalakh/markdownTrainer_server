@@ -1,5 +1,4 @@
 import express, { Request, Response } from 'express';
-import fs from 'node:fs';
 import {
   RequestWithBody,
   RequestWithParams,
@@ -9,8 +8,8 @@ import {
 import { QueryPageModel } from './models/QueryPageModel';
 import { CreatePageModel } from './models/CreatePageModel';
 import { UpdatePageModel } from './models/UpdatePageModel';
-
-const { promises: fsp } = fs;
+import { PageViewModel } from './models/PageViewModel';
+import { URIParamsPageModel } from './models/URIParamsPageModel';
 
 export const app = express();
 const port = 3000;
@@ -31,28 +30,23 @@ type PageType = {
   id: number;
   url: string;
   title: string;
+  users: number;
 };
 
 const db: { pages: PageType[] } = {
   pages: [
-    { id: 1, url: './pages/index.html', title: 'Main page' },
-    { id: 2, url: './pages/shopPage.html', title: 'Shop page' },
+    { id: 1, url: './pages/index.html', title: 'Main page', users: 10 },
+    { id: 2, url: './pages/shopPage.html', title: 'Shop page', users: 10 },
   ],
 };
 
-app.get('/', async (req, res: Response<string>) => {
-  const data = await fsp.readFile('./pages/index.html', 'utf-8');
-  res.send(data);
-});
-
-app.get('/shop', async (req, res: Response<string>) => {
-  const data = await fsp.readFile('./pages/shopPage.html', 'utf-8');
-  res.send(data);
-});
+const getPageViewModel = (page: PageType) => {
+  return { id: page.id, title: page.title, url: page.url };
+};
 
 app.get(
   '/pages',
-  (req: RequestWithQuery<QueryPageModel>, res: Response<PageType[]>) => {
+  (req: RequestWithQuery<QueryPageModel>, res: Response<PageViewModel[]>) => {
     let foundPages = db.pages;
 
     if (req.query.title) {
@@ -61,24 +55,30 @@ app.get(
       );
     }
 
-    res.json(foundPages);
+    res.json(foundPages.map((page) => getPageViewModel(page)));
   }
 );
 
-app.get('/pages/:id', (req: RequestWithParams<{ id: string }>, res) => {
-  const foundPage = db.pages.find((item) => item.id === +req.params.id);
+app.get(
+  '/pages/:id',
+  (
+    req: RequestWithParams<URIParamsPageModel>,
+    res: Response<PageViewModel>
+  ) => {
+    const foundPage = db.pages.find((item) => item.id === +req.params.id);
 
-  if (!foundPage) {
-    res.sendStatus(HTTP_STATUSES.NOT_FOUND_404);
-    return;
+    if (!foundPage) {
+      res.sendStatus(HTTP_STATUSES.NOT_FOUND_404);
+      return;
+    }
+
+    res.json(getPageViewModel(foundPage));
   }
-
-  res.json(foundPage);
-});
+);
 
 app.post(
   '/pages',
-  (req: RequestWithBody<CreatePageModel>, res: Response<PageType>) => {
+  (req: RequestWithBody<CreatePageModel>, res: Response<PageViewModel>) => {
     const titleSpacesLength = req.body.title
       .split('')
       .filter((char: string) => char === ' ').length;
@@ -94,15 +94,20 @@ app.post(
       id: +new Date(),
       url: 'unknown',
       title: req.body.title,
+      users: 0,
     };
 
     db.pages.push(createdPage);
 
-    res.status(HTTP_STATUSES.CREATED_201).json(createdPage);
+    res.status(HTTP_STATUSES.CREATED_201).json({
+      id: createdPage.id,
+      title: createdPage.title,
+      url: createdPage.url,
+    });
   }
 );
 
-app.delete('/pages/:id', (req: RequestWithParams<{ id: string }>, res) => {
+app.delete('/pages/:id', (req: RequestWithParams<URIParamsPageModel>, res) => {
   const lengthDbPages = db.pages.length;
   db.pages = db.pages.filter((page) => page.id !== +req.params.id);
 
@@ -116,7 +121,7 @@ app.delete('/pages/:id', (req: RequestWithParams<{ id: string }>, res) => {
 
 app.put(
   '/pages/:id',
-  (req: RequestWithParamsAndBody<{ id: string }, UpdatePageModel>, res) => {
+  (req: RequestWithParamsAndBody<URIParamsPageModel, UpdatePageModel>, res) => {
     if (!req.body.title) {
       res.sendStatus(HTTP_STATUSES.BAD_REQUEST_400);
       return;
