@@ -1,6 +1,8 @@
 import request from 'supertest';
 
 import { app, HTTP_STATUSES } from '../../src/server';
+import { CreatePageModel } from '../../src/models/CreatePageModel';
+import { UpdatePageModel } from '../../src/models/UpdatePageModel';
 
 describe('/pages', () => {
   beforeAll(async () => {
@@ -16,9 +18,10 @@ describe('/pages', () => {
   });
 
   it(`shouldn't create page with incorrect unput data`, async () => {
+    const data: CreatePageModel = { title: '' };
     await request(app)
       .post('/pages')
-      .send({ title: '' })
+      .send(data)
       .expect(HTTP_STATUSES.BAD_REQUEST_400);
 
     await request(app).get('/pages').expect(HTTP_STATUSES.OK_200, []);
@@ -26,16 +29,17 @@ describe('/pages', () => {
 
   let createdPage1: any = null;
   it(`should create page with correct unput data`, async () => {
+    const data: CreatePageModel = { title: 'Cart page' };
     const createdResponse = await request(app)
       .post('/pages')
-      .send({ title: 'Cart page' })
+      .send(data)
       .expect(HTTP_STATUSES.CREATED_201);
 
     createdPage1 = createdResponse.body;
 
     expect(createdPage1).toEqual({
       id: expect.any(Number),
-      title: 'Cart page',
+      title: data.title,
       url: 'unknown',
     });
 
@@ -46,16 +50,17 @@ describe('/pages', () => {
 
   let createdPage2: any = null;
   it(`should create second page with correct unput data`, async () => {
+    const data: CreatePageModel = { title: 'Cart page 2' };
     const createdResponse = await request(app)
       .post('/pages')
-      .send({ title: 'Cart page 2' })
+      .send(data)
       .expect(HTTP_STATUSES.CREATED_201);
 
     createdPage2 = createdResponse.body;
 
     expect(createdPage2).toEqual({
       id: expect.any(Number),
-      title: 'Cart page 2',
+      title: data.title,
       url: 'unknown',
     });
 
@@ -65,23 +70,25 @@ describe('/pages', () => {
   });
 
   it(`shouldn't update not existing page`, async () => {
+    const data: UpdatePageModel = { title: 'good title' };
     await request(app)
       .put('/pages/-100')
-      .send({ title: 'good title' })
+      .send(data)
       .expect(HTTP_STATUSES.NOT_FOUND_404);
   });
 
   it(`should update existing page`, async () => {
+    const data: UpdatePageModel = { title: 'good new title' };
     await request(app)
       .put('/pages/' + createdPage1.id)
-      .send({ title: 'good new title' })
+      .send(data)
       .expect(HTTP_STATUSES.NO_CONTENT_204);
 
     await request(app)
       .get('/pages/' + createdPage1.id)
       .expect(HTTP_STATUSES.OK_200, {
         ...createdPage1,
-        title: 'good new title',
+        title: data.title,
       });
 
     await request(app)
