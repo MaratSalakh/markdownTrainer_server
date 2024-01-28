@@ -1,6 +1,7 @@
 import request from 'supertest';
 
-import { app, HTTP_STATUSES } from '../../src/server';
+import { HTTP_STATUSES } from '../../src/utils';
+import { app } from '../../src/app';
 import { CreatePageModel } from '../../src/models/CreatePageModel';
 import { UpdatePageModel } from '../../src/models/UpdatePageModel';
 
