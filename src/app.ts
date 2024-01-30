@@ -1,4 +1,4 @@
-import express, { Response } from 'express';
+import express from 'express';
 import { getPagesRouter } from './routes/pages';
 import { getTestsRouter } from './routes/tests';
 import { db } from './db/db';

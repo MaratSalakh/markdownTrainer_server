@@ -10,12 +10,9 @@ import { UpdatePageModel } from '../models/UpdatePageModel';
 import { PageViewModel } from '../models/PageViewModel';
 import { URIParamsPageModel } from '../models/URIParamsPageModel';
 import express, { Response } from 'express';
-import { DBtype, PageType } from '../db/db';
+import { DBtype } from '../db/db';
 import { HTTP_STATUSES } from '../utils';
-
-const getPageViewModel = (page: PageType) => {
-  return { id: page.id, title: page.title, url: page.url };
-};
+import { pagesRepository } from '../repositories/pages-repository';
 
 export const getPagesRouter = (db: DBtype) => {
   const router = express.Router();
@@ -23,15 +20,8 @@ export const getPagesRouter = (db: DBtype) => {
   router.get(
     '/',
     (req: RequestWithQuery<QueryPageModel>, res: Response<PageViewModel[]>) => {
-      let foundPages = db.pages;
-
-      if (req.query.title) {
-        foundPages = foundPages.filter(
-          (item) => item.title.indexOf(req.query.title) > -1
-        );
-      }
-
-      res.json(foundPages.map((page) => getPageViewModel(page)));
+      const pages = pagesRepository.findPagesByTitle(db, req.query.title);
+      res.json(pages);
     }
   );
 
@@ -41,39 +31,26 @@ export const getPagesRouter = (db: DBtype) => {
       req: RequestWithParams<URIParamsPageModel>,
       res: Response<PageViewModel>
     ) => {
-      const foundPage = db.pages.find((item) => item.id === +req.params.id);
+      const foundPage = pagesRepository.findPagesById(db, req.params.id);
 
       if (!foundPage) {
         res.sendStatus(HTTP_STATUSES.NOT_FOUND_404);
         return;
       }
 
-      res.json(getPageViewModel(foundPage));
+      res.json(foundPage);
     }
   );
 
   router.post(
     '/',
     (req: RequestWithBody<CreatePageModel>, res: Response<PageViewModel>) => {
-      const titleSpacesLength = req.body.title
-        .split('')
-        .filter((char: string) => char === ' ').length;
-      // check string with spaces only
-      const checkSpaces = req.body.title.length === titleSpacesLength;
+      const createdPage = pagesRepository.createPage(db, req.body.title);
 
-      if (!req.body.title || req.body.title === '' || checkSpaces) {
+      if (!createdPage) {
         res.sendStatus(HTTP_STATUSES.BAD_REQUEST_400);
         return;
       }
-
-      const createdPage = {
-        id: +new Date(),
-        url: 'unknown',
-        title: req.body.title,
-        users: 0,
-      };
-
-      db.pages.push(createdPage);
 
       res.status(HTTP_STATUSES.CREATED_201).json({
         id: createdPage.id,
