@@ -5,7 +5,7 @@ const getPageViewModel = (page: PageType) => {
 };
 
 export const pagesRepository = {
-  findPagesByTitle(db: DBtype, title: string) {
+  findPageByTitle(db: DBtype, title: string) {
     let foundPages = db.pages;
 
     if (title) {
@@ -15,7 +15,7 @@ export const pagesRepository = {
     return foundPages.map((page) => getPageViewModel(page));
   },
 
-  findPagesById(db: DBtype, id: string) {
+  findPageById(db: DBtype, id: string) {
     const foundPage = db.pages.find((item) => item.id === +id);
 
     if (!foundPage) {
@@ -46,5 +46,31 @@ export const pagesRepository = {
     db.pages.push(createdPage);
 
     return createdPage;
+  },
+
+  deletePage(db: DBtype, id: string) {
+    const lengthDbPages = db.pages.length;
+    db.pages = db.pages.filter((page) => page.id !== +id);
+
+    if (lengthDbPages === db.pages.length) {
+      return false;
+    }
+
+    return true;
+  },
+
+  changePage(db: DBtype, id: string, title: string) {
+    if (!title) {
+      return 'badRequest';
+    }
+
+    const foundPage = db.pages.find((item) => item.id === +id);
+    if (!foundPage) {
+      return 'notFound';
+    }
+
+    foundPage.title = title;
+
+    return;
   },
 };

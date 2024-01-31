@@ -20,7 +20,7 @@ export const getPagesRouter = (db: DBtype) => {
   router.get(
     '/',
     (req: RequestWithQuery<QueryPageModel>, res: Response<PageViewModel[]>) => {
-      const pages = pagesRepository.findPagesByTitle(db, req.query.title);
+      const pages = pagesRepository.findPageByTitle(db, req.query.title);
       res.json(pages);
     }
   );
@@ -31,7 +31,7 @@ export const getPagesRouter = (db: DBtype) => {
       req: RequestWithParams<URIParamsPageModel>,
       res: Response<PageViewModel>
     ) => {
-      const foundPage = pagesRepository.findPagesById(db, req.params.id);
+      const foundPage = pagesRepository.findPageById(db, req.params.id);
 
       if (!foundPage) {
         res.sendStatus(HTTP_STATUSES.NOT_FOUND_404);
@@ -45,26 +45,25 @@ export const getPagesRouter = (db: DBtype) => {
   router.post(
     '/',
     (req: RequestWithBody<CreatePageModel>, res: Response<PageViewModel>) => {
-      const createdPage = pagesRepository.createPage(db, req.body.title);
+      const newPage = pagesRepository.createPage(db, req.body.title);
 
-      if (!createdPage) {
+      if (!newPage) {
         res.sendStatus(HTTP_STATUSES.BAD_REQUEST_400);
         return;
       }
 
       res.status(HTTP_STATUSES.CREATED_201).json({
-        id: createdPage.id,
-        title: createdPage.title,
-        url: createdPage.url,
+        id: newPage.id,
+        title: newPage.title,
+        url: newPage.url,
       });
     }
   );
 
   router.delete('/:id', (req: RequestWithParams<URIParamsPageModel>, res) => {
-    const lengthDbPages = db.pages.length;
-    db.pages = db.pages.filter((page) => page.id !== +req.params.id);
+    const isDeletePage = pagesRepository.deletePage(db, req.params.id);
 
-    if (lengthDbPages === db.pages.length) {
+    if (!isDeletePage) {
       res.sendStatus(HTTP_STATUSES.NOT_FOUND_404);
       return;
     }
@@ -78,20 +77,23 @@ export const getPagesRouter = (db: DBtype) => {
       req: RequestWithParamsAndBody<URIParamsPageModel, UpdatePageModel>,
       res
     ) => {
-      if (!req.body.title) {
+      const changeResult = pagesRepository.changePage(
+        db,
+        req.params.id,
+        req.body.title
+      );
+
+      if (changeResult === 'badRequest') {
         res.sendStatus(HTTP_STATUSES.BAD_REQUEST_400);
         return;
       }
 
-      const foundPage = db.pages.find((item) => item.id === +req.params.id);
-      if (!foundPage) {
+      if (changeResult === 'notFound') {
         res.sendStatus(HTTP_STATUSES.NOT_FOUND_404);
         return;
       }
 
-      foundPage.title = req.body.title;
-
-      res.sendStatus(HTTP_STATUSES.NO_CONTENT_204);
+      res.sendStatus(HTTP_STATUSES.NOT_FOUND_404);
     }
   );
 
