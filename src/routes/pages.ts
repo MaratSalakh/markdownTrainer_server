@@ -13,6 +13,8 @@ import express, { Response } from 'express';
 import { DBtype } from '../db/db';
 import { HTTP_STATUSES } from '../utils';
 import { pagesRepository } from '../repositories/pages-repository';
+import { body, validationResult } from 'express-validator';
+import { inputValidatonMiddleware } from '../middlewares/input-validation-middleware';
 
 export const getPagesRouter = (db: DBtype) => {
   const router = express.Router();
@@ -42,11 +44,14 @@ export const getPagesRouter = (db: DBtype) => {
     }
   );
 
+  const titleValidation = body('title').trim().isLength({ min: 3, max: 30 });
+
   router.post(
     '/',
+    titleValidation,
+    inputValidatonMiddleware,
     (req: RequestWithBody<CreatePageModel>, res: Response<PageViewModel>) => {
       const newPage = pagesRepository.createPage(db, req.body.title);
-
       if (!newPage) {
         res.sendStatus(HTTP_STATUSES.BAD_REQUEST_400);
         return;
@@ -73,6 +78,8 @@ export const getPagesRouter = (db: DBtype) => {
 
   router.put(
     '/:id',
+    titleValidation,
+    inputValidatonMiddleware,
     (
       req: RequestWithParamsAndBody<URIParamsPageModel, UpdatePageModel>,
       res
@@ -83,17 +90,12 @@ export const getPagesRouter = (db: DBtype) => {
         req.body.title
       );
 
-      if (changeResult === 'badRequest') {
-        res.sendStatus(HTTP_STATUSES.BAD_REQUEST_400);
-        return;
-      }
-
-      if (changeResult === 'notFound') {
+      if (!changeResult) {
         res.sendStatus(HTTP_STATUSES.NOT_FOUND_404);
         return;
       }
 
-      res.sendStatus(HTTP_STATUSES.NOT_FOUND_404);
+      res.sendStatus(HTTP_STATUSES.NO_CONTENT_204);
     }
   );
 

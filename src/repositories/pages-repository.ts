@@ -26,16 +26,6 @@ export const pagesRepository = {
   },
 
   createPage(db: DBtype, title: string) {
-    const titleSpacesLength = title
-      .split('')
-      .filter((char: string) => char === ' ').length;
-    // check string with spaces only
-    const checkSpaces = title.length === titleSpacesLength;
-
-    if (!title || title === '' || checkSpaces) {
-      return null;
-    }
-
     const createdPage = {
       id: +new Date(),
       url: 'unknown',
@@ -60,17 +50,13 @@ export const pagesRepository = {
   },
 
   changePage(db: DBtype, id: string, title: string) {
-    if (!title) {
-      return 'badRequest';
-    }
-
-    const foundPage = db.pages.find((item) => item.id === +id);
+    const foundPage = db.pages.find((page) => page.id === +id);
     if (!foundPage) {
-      return 'notFound';
+      return null;
     }
 
     foundPage.title = title;
 
-    return;
+    return true;
   },
 };
